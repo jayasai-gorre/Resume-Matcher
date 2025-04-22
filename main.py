@@ -1,20 +1,29 @@
 from flask import Flask, request, render_template
+from dotenv import load_dotenv
 import os
 import PyPDF2
 import docx2txt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+# Load environment variables
+load_dotenv()
+
 app = Flask(__name__)
 
-# Creating a folder dynamically
-app.config['UPLOAD_FOLDER'] = "uploads/"
+# Folder to save uploaded resumes
+UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads/")
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Create upload folder if it doesn't exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 
-# Extract text from pdf file
-def extractTextFromPdfFile(filePath):
+# --------------- Text Extraction Functions ---------------
+
+def extract_text_from_pdf(file_path):
     text = ""
-    with open(filePath, 'rb') as file:
+    with open(file_path, 'rb') as file:
         reader = PyPDF2.PdfReader(file)
         for page in reader.pages:
             page_text = page.extract_text()
@@ -22,81 +31,68 @@ def extractTextFromPdfFile(filePath):
                 text += page_text
     return text
 
-# Extract text from docx file
-def extractTextFromDocxFile(filePath):
-    return docx2txt.process(filePath)
 
-# Extract text from txt file
-def extractTextFromTxtFile(filePath):
-    with open(filePath, 'r', encoding='utf-8') as file:
+def extract_text_from_docx(file_path):
+    return docx2txt.process(file_path)
+
+
+def extract_text_from_txt(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
-def extractText(filePath):
-    if filePath.endswith(".pdf"):
-        return extractTextFromPdfFile(filePath)
-    elif filePath.endswith(".docx"):
-        return extractTextFromDocxFile(filePath)
-    elif filePath.endswith(".txt"):
-        return extractTextFromTxtFile(filePath)
-    else:
-        return ""
+
+def extract_text(file_path):
+    if file_path.endswith(".pdf"):
+        return extract_text_from_pdf(file_path)
+    elif file_path.endswith(".docx"):
+        return extract_text_from_docx(file_path)
+    elif file_path.endswith(".txt"):
+        return extract_text_from_txt(file_path)
+    return ""
 
 
+# --------------- Routes ---------------
 
-
-
-
-# Route for rendering the html file
 @app.route("/")
-def matchresume():
+def home():
     return render_template('index.html')
 
 
-@app.route("/matcher", methods=['GET', 'POST'])
+@app.route("/matcher", methods=["POST"])
 def matcher():
-    if request.method == 'POST':
+    job_desc = request.form.get("job-desc")
+    resume_files = request.files.getlist("resumes")
 
-        # Getting the job-desc and resumes
-        jobDesc = request.form.get('job-desc')
-        resumeFiles = request.files.getlist('resumes')
+    if not job_desc or not resume_files:
+        return render_template('index.html', message="Please upload resumes and enter a job description.")
 
-        resumes = []
-        for resumeFile in resumeFiles:
+    resumes_text = []
+    filenames = []
 
-            # Storing the resume in the uploads dynamically
-            fileName = os.path.join(app.config['UPLOAD_FOLDER'], resumeFile.filename)
-            resumeFile.save(fileName)
-            
-            # Appending into the resumeList
-            resumes.append(extractText(fileName))
+    for resume_file in resume_files:
+        save_path = os.path.join(app.config['UPLOAD_FOLDER'], resume_file.filename)
+        resume_file.save(save_path)
 
-        if not resumes and not jobDesc:
-            return render_template('index.html', message="Please upload resumes and job post")
-        
+        extracted_text = extract_text(save_path)
+        resumes_text.append(extracted_text)
+        filenames.append(resume_file.filename)
 
-        '''
-            Main Part of the Resume Matcher
-        '''
-        vectorizer = TfidfVectorizer().fit_transform([jobDesc] + resumes)
-        vectors = vectorizer.toarray()
-        jobVector = vectors[0]
-        resumeVectors = vectors[1:]
-        similarities = cosine_similarity([jobVector], resumeVectors)[0]
+    vectorizer = TfidfVectorizer().fit_transform([job_desc] + resumes_text)
+    vectors = vectorizer.toarray()
 
+    job_vector = vectors[0]
+    resume_vectors = vectors[1:]
+    similarities = cosine_similarity([job_vector], resume_vectors)[0]
 
-        topIndices = similarities.argsort()[-3:][::-1]
-        topResumes = [resumeFiles[i].filename for i in topIndices]
-        similarityScores = [round(similarities[i],2) for i in topIndices]
+    top_indices = similarities.argsort()[-3:][::-1]
+    top_resumes = [filenames[i] for i in top_indices]
+    similarity_scores = [round(similarities[i], 2) for i in top_indices]
+
+    return render_template("index.html", message="Top Matching Resumes:", topResumes=top_resumes, similarityScores=similarity_scores)
 
 
-        # Now, return a result to the user (you could display the similarities)
-        return render_template('index.html', message="Top Matching Resumes:", topResumes=topResumes, similarityScores=similarityScores)
+# --------------- Main Entry Point ---------------
 
-    return render_template('index.html')  # Add this line to handle GET requests
-
-
-
-if __name__=="__main__":
-    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-        os.makedirs(app.config['UPLOAD_FOLDER'])
-    app.run(debug=True)
+if __name__ == "__main__":
+    debug_mode = os.getenv("FLASK_ENV") != "production"
+    app.run(debug=debug_mode)
