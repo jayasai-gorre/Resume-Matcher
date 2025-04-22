@@ -1,0 +1,93 @@
+/* Background Image */
+body {
+    background-image: url(resume.jpg);
+    background-size: contain;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+} 
+
+/* Glassmorphism Effect on Card */
+.card {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+}
+
+/* Card Header */
+.card-header {
+  background: linear-gradient(135deg, #5f27cd, #341f97);
+  color: white;
+  padding: 20px 30px;
+  border-bottom: none;
+}
+
+.card-header h2 {
+  font-weight: bold;
+  margin: 0;
+}
+
+/* Form Styling */
+.form-label {
+  font-weight: 600;
+}
+
+textarea.form-control {
+  resize: vertical;
+}
+
+/* Button Styling */
+.btn-primary {
+  background-color: #1e90ff;
+  border: none;
+  padding: 12px 25px;
+  font-size: 1rem;
+  border-radius: 10px;
+  transition: 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+/* Text Info */
+.form-text {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+/* Jinja Template */
+.jinja {
+  color: red;
+  margin-top: 10px;
+}
+
+
+
+.alert-info ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.alert-info li {
+  padding: 5px 0;
+  font-size: 1rem;
+}
+
+.py-5 {
+  padding-top: 1rem !important;
+  padding-bottom: 3rem !important;
+}
+
+/* Responsive Typography */
+@media (max-width: 576px) {
+  .card-header h2 {
+    font-size: 1.4rem;
+  }
+}
